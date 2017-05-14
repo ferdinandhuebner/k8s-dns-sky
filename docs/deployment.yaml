@@ -1,18 +1,3 @@
-# Deployment 
-
-An example-deployment that uses an etcd at https://192.168.1.2.23790 with certificate authentication
-from a secret with the name `skydns-etcd-secret`.
-
-To create the secret, put `etcd-ca.crt`, `etcd-client.crt` and `etcd-client.key` in a directory,
-and create a generic secret from these files:
-
-```bash
-kubectl --namespace=kube-system create secret generic skydns-etcd-secret --from-file=.
-```
-
-[deployment.yaml](deployment.yaml)
-
-```yaml
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -72,4 +57,4 @@ spec:
       - name: secrets
         secret:
           secretName: skydns-etcd-secret
-```
+
