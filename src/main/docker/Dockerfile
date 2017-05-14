@@ -1,4 +1,4 @@
-FROM anapsix/alpine-java:8_jdk_unlimited8_jdk_unlimited
+FROM anapsix/alpine-java:8_jdk_unlimited
 
 RUN useradd -d / -U -m -s /bin/false app
 
