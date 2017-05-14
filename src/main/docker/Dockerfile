@@ -1,8 +1,8 @@
 FROM anapsix/alpine-java:8_jdk_unlimited
 
-RUN useradd -d / -U -m -s /bin/false app
+RUN adduser -D -H dns-controller
 
-USER app
+USER dns-controller
 
 ENV JAVA_TOOL_OPTIONS "-Xms64m -Xmx128m -XX:MaxMetaspaceSize=64m"
 
