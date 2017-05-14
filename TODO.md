@@ -1,0 +1,1 @@
+* exponential backoff in dnsrecordhandler#update for calls that failed
