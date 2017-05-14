@@ -1,5 +1,5 @@
 package k8sdnssky
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.{ActorContext, ActorRef, ActorSystem}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import io.fabric8.kubernetes.api.model.HasMetadata
 import io.fabric8.kubernetes.api.model.extensions.IngressBuilder
@@ -24,9 +24,9 @@ class DnsControllerSuite extends TestKit(ActorSystem("dns-controller-suite"))
 
   "a dns-controller" must "create a new record handler for new records" in {
     val k8s = new KubernetesRepositoryStub(Nil, Nil)
-    val factory: (HasMetadata => ActorRef) = mock[HasMetadata => ActorRef]
+    val factory: ((HasMetadata, ActorContext) => ActorRef) = mock[(HasMetadata, ActorContext) => ActorRef]
     val mockedHandler = mock[ActorRef]
-    when(factory.apply(any())).thenReturn(mockedHandler)
+    when(factory.apply(any(), any())).thenReturn(mockedHandler)
     val props = DnsController.props(k8s, factory, null)
 
     val actor = system.actorOf(props)
@@ -41,17 +41,17 @@ class DnsControllerSuite extends TestKit(ActorSystem("dns-controller-suite"))
     val evt = IngressEvent(ing, Action.ADDED)
     k8s.fireIngEvent(evt)
 
-    verify(factory, timeout(500)).apply(ArgumentMatchers.eq(ing))
+    verify(factory, timeout(500)).apply(ArgumentMatchers.eq(ing), any())
     system.stop(actor)
   }
 
   it must "tell the record handler to update the resource after a change" in {
     val k8s = new KubernetesRepositoryStub(Nil, Nil)
-    val factory: (HasMetadata => ActorRef) = mock[HasMetadata => ActorRef]
+    val factory: ((HasMetadata, ActorContext) => ActorRef) = mock[(HasMetadata, ActorContext) => ActorRef]
 
     val mockedHandler = TestProbe()
 
-    when(factory.apply(any())).thenReturn(mockedHandler.ref)
+    when(factory.apply(any(), any())).thenReturn(mockedHandler.ref)
     val props = DnsController.props(k8s, factory, null)
 
     val actor = system.actorOf(props)
@@ -66,7 +66,7 @@ class DnsControllerSuite extends TestKit(ActorSystem("dns-controller-suite"))
     val evt = IngressEvent(ing, Action.ADDED)
     k8s.fireIngEvent(evt)
 
-    verify(factory, timeout(500)).apply(ArgumentMatchers.eq(ing))
+    verify(factory, timeout(500)).apply(ArgumentMatchers.eq(ing), any())
 
     val updatedIngress = new IngressBuilder(ing).editStatus()
         .withNewLoadBalancer()
@@ -83,11 +83,11 @@ class DnsControllerSuite extends TestKit(ActorSystem("dns-controller-suite"))
 
   it must "tell the record handler to release the resource if it is no longer relevant" in {
     val k8s = new KubernetesRepositoryStub(Nil, Nil)
-    val factory: (HasMetadata => ActorRef) = mock[HasMetadata => ActorRef]
+    val factory: ((HasMetadata, ActorContext) => ActorRef) = mock[(HasMetadata, ActorContext) => ActorRef]
 
     val mockedHandler = TestProbe()
 
-    when(factory.apply(any())).thenReturn(mockedHandler.ref)
+    when(factory.apply(any(), any())).thenReturn(mockedHandler.ref)
     val props = DnsController.props(k8s, factory, null)
 
     val actor = system.actorOf(props)
@@ -102,7 +102,7 @@ class DnsControllerSuite extends TestKit(ActorSystem("dns-controller-suite"))
     val evt = IngressEvent(ing, Action.ADDED)
     k8s.fireIngEvent(evt)
 
-    verify(factory, timeout(500)).apply(ArgumentMatchers.eq(ing))
+    verify(factory, timeout(500)).apply(ArgumentMatchers.eq(ing), any())
 
     val updatedIngress = new IngressBuilder(ing).editStatus()
         .withNewLoadBalancer()

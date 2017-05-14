@@ -3,7 +3,7 @@ package k8sdnssky
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{ActorContext, ActorRef, ActorSystem, Props}
 import com.typesafe.config.ConfigFactory
 import io.fabric8.kubernetes.api.model.HasMetadata
 import io.fabric8.kubernetes.client.{DefaultKubernetesClient, KubernetesClient}
@@ -95,12 +95,12 @@ object App {
       }
 
       @Bean
-      def dnsRecordHandlerFactory(): (HasMetadata) => ActorRef = {
-        (hasMetadata) => {
+      def dnsRecordHandlerFactory(): (HasMetadata, ActorContext) => ActorRef = {
+        (hasMetadata, context) => {
           val props = DnsRecordHandler.props(
             kubernetesClient, skyDnsRepository(), eventDispatcher(), hasMetadata, dnsProperties
           )
-          actorSystem().actorOf(props)
+          context.actorOf(props)
         }
       }
 

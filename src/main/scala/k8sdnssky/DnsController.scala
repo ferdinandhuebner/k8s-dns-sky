@@ -1,7 +1,7 @@
 package k8sdnssky
 import java.util.concurrent.atomic.AtomicBoolean
 
-import akka.actor.{Actor, ActorRef, Kill, Props}
+import akka.actor.{Actor, ActorContext, ActorRef, Kill, Props}
 import akka.event.Logging
 import io.fabric8.kubernetes.api.model.HasMetadata
 import io.fabric8.kubernetes.client.{Watch, Watcher}
@@ -21,13 +21,17 @@ object DnsController {
     object Restart
   }
 
-  def props(k8s: KubernetesRepository, recordHandlerFactory: (HasMetadata) => ActorRef, controllerClass: String): Props =
+  def props(
+      k8s: KubernetesRepository,
+      recordHandlerFactory: (HasMetadata, ActorContext) => ActorRef,
+      controllerClass: String
+  ): Props =
     Props(new DnsController(k8s, recordHandlerFactory, controllerClass))
 }
 
 class DnsController(
     private val k8s: KubernetesRepository,
-    private val recordHandlerFactory: (HasMetadata) => ActorRef,
+    private val recordHandlerFactory: (HasMetadata, ActorContext) => ActorRef,
     private val controllerClass: String
 ) extends Actor {
 
@@ -81,7 +85,7 @@ class DnsController(
       }
 
       val handlers = (services ++ ingresses).values.map(resource => {
-        resource.hashKey -> recordHandlerFactory(resource)
+        resource.hashKey -> recordHandlerFactory(resource, context)
       }).toMap
 
       context.become(watching(watches, services ++ ingresses, handlers))
@@ -170,7 +174,7 @@ class DnsController(
           val newHandler = handlers.get(resource.hashKey).map(handler => {
             handler ! DnsRecordHandler.Protocol.Update(resource)
             handler
-          }).getOrElse(recordHandlerFactory(resource))
+          }).getOrElse(recordHandlerFactory(resource, context))
 
           val newHandlers = handlers + (resource.hashKey -> newHandler)
           context.become(watching(watches, resources + (resource.hashKey -> resource), newHandlers))
