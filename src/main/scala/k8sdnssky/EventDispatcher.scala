@@ -51,7 +51,7 @@ class EventDispatcher(private val k8s: KubernetesClient) extends Actor {
     } catch {
       case _: Exception =>
         try {
-          k8s.events().createNew()
+          k8s.events().inNamespace(namespace).createNew()
               .withNewMetadata().withNamespace(namespace).withName(name).endMetadata()
               .withNewInvolvedObject()
               .withApiVersion(involvedObject.getApiVersion).withKind(involvedObject.getKind)
