@@ -5,5 +5,9 @@ jdk:
   - openjdk8
 services:
   - docker
+install: ./mvnw dependency:resolve
+cache:
+  directories:
+  - $HOME/.m2
 script:
   - ./mvnw -Ddocker.push.username=${DOCKER_USERNAME} -Ddocker.push.password=${DOCKER_PASSWORD} clean package docker:push
