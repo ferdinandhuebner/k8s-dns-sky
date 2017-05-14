@@ -6,4 +6,5 @@ jdk:
 services:
   - docker
 install:
-- ./mvnw clean package
+# - ./mvnw -Ddocker.push.username=${DOCKER_USERNAME} -Ddocker.push.password=${DOCKER_PASSWORD} clean package
+- docker version; docker info; env
