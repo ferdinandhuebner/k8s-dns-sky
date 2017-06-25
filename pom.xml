@@ -6,7 +6,7 @@
 
   <groupId>com.github.ferdinandhuebner</groupId>
   <artifactId>k8s-dns-sky</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
   <packaging>jar</packaging>
 
   <name>k8s-dns-sky</name>
