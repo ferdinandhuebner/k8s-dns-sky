@@ -36,6 +36,7 @@ class DnsRecordHandler(
   private val whitelist = dnsProperties.whitelistAsList
   private val blacklist = dnsProperties.blacklistAsList
 
+  log.debug(s"Record handler for ${initialResource.asString} with hostnames ${initialResource.hostnames}")
   updateRecords(initialResource, None)
 
   import scala.concurrent.ExecutionContext.Implicits.global

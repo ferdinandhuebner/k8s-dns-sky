@@ -45,6 +45,7 @@ class DnsController(
   initialize()
 
   private def initialize(): Unit = {
+    log.debug("DnsController is initializing")
     val watches: mutable.Buffer[Watch] = mutable.Buffer()
     watches ++= Seq(
       k8s.watchIngresses(evt => self ! evt, e => onConnectionLost(e, watches)),
@@ -55,7 +56,9 @@ class DnsController(
   }
 
   private def onConnectionLost(e: Throwable, watches: Seq[Watch]): Unit = {
+    log.debug("Connection to kubernetes lost")
     if (connectionWasLost.compareAndSet(false, true)) {
+      log.debug("Telling children to release their records")
       context.children.foreach(actor => actor ! Release)
       watches.foreach(w => Try(w.close()))
       self ! Restart
@@ -197,5 +200,9 @@ class DnsController(
     case x =>
       log.warning("Unhandled message: " + x)
       unhandled(x)
+  }
+  override protected[akka] def aroundPostRestart(reason: Throwable): Unit = {
+    log.debug("DnsController restarted")
+    super.aroundPostRestart(reason)
   }
 }

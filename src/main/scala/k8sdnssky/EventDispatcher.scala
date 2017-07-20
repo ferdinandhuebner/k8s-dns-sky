@@ -43,6 +43,7 @@ class EventDispatcher(private val k8s: KubernetesClient) extends Actor {
 
   private def fireEvent(namespace: String, name: String, evtType: String, reason: String,
       message: String, involvedObject: HasMetadata): Unit = {
+    log.debug(s"Firing event of type $evtType: $message (reason: $reason, object: ${involvedObject.asString})")
     try {
       val event = k8s.events().inNamespace(namespace).withName(name).get()
       k8s.events().inNamespace(namespace).withName(name).edit()
