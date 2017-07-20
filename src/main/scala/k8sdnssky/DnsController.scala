@@ -112,6 +112,9 @@ class DnsController(
       if (isNewHandled && !wasOldHandled) {
         log.debug(s"$evt: resource changed from unhandled to handled")
         KubernetesAction(evt.resource, Put)
+      } else if (!isNewHandled && !wasOldHandled) {
+        log.debug(s"$evt: resource is not relevant")
+        KubernetesAction(evt.resource, IgnoreResource)
       } else if (!isNewHandled) {
         log.debug(s"$evt: resource changed from handled to unhandled")
         KubernetesAction(evt.resource, Delete)

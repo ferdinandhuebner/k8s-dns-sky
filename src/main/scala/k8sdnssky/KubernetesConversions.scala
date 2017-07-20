@@ -34,7 +34,12 @@ object KubernetesConversions {
     def hasDnsControllerClass(name: String): Boolean = {
       val controllerClass = annotation(DnsController.ControllerAnnotation)
       if (name == null || name.isEmpty) {
-        controllerClass == null || controllerClass.isEmpty
+        self match {
+          case _: Ingress =>
+            controllerClass == null || controllerClass.isEmpty
+          case _ =>
+            false
+        }
       } else {
         controllerClass == name
       }
