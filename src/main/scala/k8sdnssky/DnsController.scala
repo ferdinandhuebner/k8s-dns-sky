@@ -201,7 +201,7 @@ class DnsController(
       log.warning("Unhandled message: " + x)
       unhandled(x)
   }
-  override protected[akka] def aroundPostRestart(reason: Throwable): Unit = {
+  override def aroundPostRestart(reason: Throwable): Unit = {
     log.debug("DnsController restarted")
     super.aroundPostRestart(reason)
   }
