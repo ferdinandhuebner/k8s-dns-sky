@@ -122,7 +122,7 @@ class DnsController(
         log.debug(s"$evt: resource changed from handled to unhandled")
         KubernetesAction(evt.resource, Delete)
       } else if (newLb.nonEmpty) {
-        if (newLb != existingLb) {
+        if (newLb != existingLb && newHosts.nonEmpty) {
           log.debug(s"$evt: load balancer changed; put new records")
           KubernetesAction(evt.resource, Put)
         } else {
