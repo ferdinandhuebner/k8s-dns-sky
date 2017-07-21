@@ -62,7 +62,7 @@ class DnsController(
     }
   }
 
-  private def prepareRestart(): Unit = {
+  private def prepareRestart(watches: Seq[Watch]): Unit = {
     log.debug("Telling children to release their records")
     context.children.foreach(actor => actor ! Release)
     watches.foreach(w => Try(w.close()))
@@ -73,7 +73,7 @@ class DnsController(
     case evt: KubernetesEvent[_] => context.become(initializing(watches, events :+ evt))
 
     case Restart => 
-      prepareRestart()
+      prepareRestart(watches)
       throw new RuntimeException("Restart requested")
 
     case Initialize =>
@@ -170,7 +170,7 @@ class DnsController(
   private def watching(watches: Seq[Watch], resources: Map[String, HasMetadata],
       handlers: Map[String, ActorRef]): Receive = {
     case Restart => 
-      prepareRestart()
+      prepareRestart(watches)
       throw new RuntimeException("Restart requested")
     case evt: KubernetesEvent[_] =>
       val action = evt.action
@@ -208,7 +208,7 @@ class DnsController(
       log.warning("Unhandled message: " + x)
       unhandled(x)
   }
-  
+
   override def aroundPostRestart(reason: Throwable): Unit = {
     log.debug("DnsController restarted")
     super.aroundPostRestart(reason)
