@@ -58,18 +58,23 @@ class DnsController(
   private def onConnectionLost(e: Throwable, watches: Seq[Watch]): Unit = {
     log.debug("Connection to kubernetes lost")
     if (connectionWasLost.compareAndSet(false, true)) {
-      log.debug("Telling children to release their records")
-      context.children.foreach(actor => actor ! Release)
-      watches.foreach(w => Try(w.close()))
       self ! Restart
     }
+  }
+
+  private def prepareRestart(): Unit = {
+    log.debug("Telling children to release their records")
+    context.children.foreach(actor => actor ! Release)
+    watches.foreach(w => Try(w.close()))
   }
 
   private def initializing(watches: Seq[Watch], events: List[KubernetesEvent[_]]): Receive = {
 
     case evt: KubernetesEvent[_] => context.become(initializing(watches, events :+ evt))
 
-    case Restart => throw new RuntimeException("Restart requested")
+    case Restart => 
+      prepareRestart()
+      throw new RuntimeException("Restart requested")
 
     case Initialize =>
 
@@ -164,7 +169,9 @@ class DnsController(
 
   private def watching(watches: Seq[Watch], resources: Map[String, HasMetadata],
       handlers: Map[String, ActorRef]): Receive = {
-    case Restart => throw new RuntimeException("Restart requested")
+    case Restart => 
+      prepareRestart()
+      throw new RuntimeException("Restart requested")
     case evt: KubernetesEvent[_] =>
       val action = evt.action
       val resource = evt.resource
@@ -201,6 +208,7 @@ class DnsController(
       log.warning("Unhandled message: " + x)
       unhandled(x)
   }
+  
   override def aroundPostRestart(reason: Throwable): Unit = {
     log.debug("DnsController restarted")
     super.aroundPostRestart(reason)
