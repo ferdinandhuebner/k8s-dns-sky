@@ -22,12 +22,14 @@ class DnsControllerSuite extends TestKit(ActorSystem("dns-controller-suite"))
     TestKit.shutdownActorSystem(system)
   }
 
+  private val defaultDecider = new DefaultDecider()
+
   "a dns-controller" must "create a new record handler for new records" in {
     val k8s = new KubernetesRepositoryStub(Nil, Nil)
     val factory: ((HasMetadata, ActorContext) => ActorRef) = mock[(HasMetadata, ActorContext) => ActorRef]
     val mockedHandler = mock[ActorRef]
     when(factory.apply(any(), any())).thenReturn(mockedHandler)
-    val props = DnsController.props(k8s, factory, null)
+    val props = DnsController.props(k8s, factory, defaultDecider, null)
 
     val actor = system.actorOf(props)
 
@@ -52,7 +54,7 @@ class DnsControllerSuite extends TestKit(ActorSystem("dns-controller-suite"))
     val mockedHandler = TestProbe()
 
     when(factory.apply(any(), any())).thenReturn(mockedHandler.ref)
-    val props = DnsController.props(k8s, factory, null)
+    val props = DnsController.props(k8s, factory, defaultDecider, null)
 
     val actor = system.actorOf(props)
 
@@ -88,7 +90,7 @@ class DnsControllerSuite extends TestKit(ActorSystem("dns-controller-suite"))
     val mockedHandler = TestProbe()
 
     when(factory.apply(any(), any())).thenReturn(mockedHandler.ref)
-    val props = DnsController.props(k8s, factory, null)
+    val props = DnsController.props(k8s, factory, defaultDecider, null)
 
     val actor = system.actorOf(props)
 

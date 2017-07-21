@@ -106,10 +106,12 @@ object App {
 
       @Bean
       def dnsController(): ActorRef = {
+        val decider = new DefaultDecider()
         actorSystem().actorOf(
           DnsController.props(
             kubernetesRepository(),
             dnsRecordHandlerFactory(),
+            decider,
             dnsProperties.controllerClass
           ),
           "dns-controller"

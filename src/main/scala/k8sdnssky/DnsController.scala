@@ -5,6 +5,7 @@ import akka.actor.{Actor, ActorContext, ActorRef, Kill, Props}
 import akka.event.Logging
 import io.fabric8.kubernetes.api.model.HasMetadata
 import io.fabric8.kubernetes.client.{Watch, Watcher}
+import k8sdnssky.Decider.{Delete, IgnoreResource, NoChange, Put}
 import k8sdnssky.DnsRecordHandler.Protocol.Release
 import k8sdnssky.KubernetesRepository.KubernetesEvent
 
@@ -24,14 +25,16 @@ object DnsController {
   def props(
       k8s: KubernetesRepository,
       recordHandlerFactory: (HasMetadata, ActorContext) => ActorRef,
+      decider: Decider,
       controllerClass: String
   ): Props =
-    Props(new DnsController(k8s, recordHandlerFactory, controllerClass))
+    Props(new DnsController(k8s, recordHandlerFactory, decider, controllerClass))
 }
 
 class DnsController(
     private val k8s: KubernetesRepository,
     private val recordHandlerFactory: (HasMetadata, ActorContext) => ActorRef,
+    private val decider: Decider,
     private val controllerClass: String
 ) extends Actor {
 
@@ -102,71 +105,6 @@ class DnsController(
       unhandled(x)
   }
 
-  sealed trait DnsAction
-  object NoChange extends DnsAction
-  object IgnoreResource extends DnsAction
-  object Put extends DnsAction
-  object Delete extends DnsAction
-  case class KubernetesAction[T <: HasMetadata](resource: T, action: DnsAction)
-
-  private def actionFor[T <: HasMetadata](evt: KubernetesEvent[T], existing: Option[T]): KubernetesAction[T] = {
-    if (evt.action == Watcher.Action.ADDED || evt.action == Watcher.Action.MODIFIED) {
-      val isNewHandled = evt.resource.hasDnsControllerClass(controllerClass)
-      val wasOldHandled = evt.resource.hasDnsControllerClass(controllerClass)
-      val newLb = evt.resource.loadBalancerIngress
-      val newHosts = evt.resource.hostnames.toSet
-      val existingLb = existing.map(_.loadBalancerIngress).getOrElse(Set.empty)
-      val existingHosts = existing.map(_.hostnames).getOrElse(Set.empty)
-      if (isNewHandled && !wasOldHandled) {
-        log.debug(s"$evt: resource changed from unhandled to handled")
-        KubernetesAction(evt.resource, Put)
-      } else if (!isNewHandled && !wasOldHandled) {
-        log.debug(s"$evt: resource is not relevant")
-        KubernetesAction(evt.resource, IgnoreResource)
-      } else if (!isNewHandled) {
-        log.debug(s"$evt: resource changed from handled to unhandled")
-        KubernetesAction(evt.resource, Delete)
-      } else if (newLb.nonEmpty) {
-        if (newLb != existingLb && newHosts.nonEmpty) {
-          log.debug(s"$evt: load balancer changed; put new records")
-          KubernetesAction(evt.resource, Put)
-        } else {
-          if (newHosts != existingHosts) {
-            if (newHosts.nonEmpty) {
-              log.debug(s"$evt: no load balancer changed but hostnames changed; put new records")
-              KubernetesAction(evt.resource, Put)
-            } else {
-              log.debug(s"$evt: no load balancer changed but no hostnames left; remove records")
-              KubernetesAction(evt.resource, Delete)
-            }
-          } else {
-            log.debug(s"$evt: no load balancer change; don't udpate records")
-            KubernetesAction(evt.resource, NoChange)
-          }
-        }
-      } else {
-        if (existingLb.nonEmpty) {
-          log.debug(s"$evt: all load balancers deleted; remove records")
-          KubernetesAction(evt.resource, Delete)
-        } else {
-          log.debug(s"$evt: no load balancers and no change; ignore resource")
-          KubernetesAction(evt.resource, IgnoreResource)
-        }
-      }
-    } else if (evt.action == Watcher.Action.DELETED) {
-      if (existing.nonEmpty) {
-        log.debug(s"$evt: existing load balancers found; remove records")
-        KubernetesAction(evt.resource, Delete)
-      } else {
-        log.debug(s"$evt: no existing load balancers found; ignore resource")
-        KubernetesAction(evt.resource, IgnoreResource)
-      }
-    } else {
-      log.debug(s"$evt: no change")
-      KubernetesAction(evt.resource, NoChange)
-    }
-  }
-
   private def watching(watches: Seq[Watch], resources: Map[String, HasMetadata],
       handlers: Map[String, ActorRef]): Receive = {
     case Restart => 
@@ -177,7 +115,7 @@ class DnsController(
       val resource = evt.resource
 
       log.debug(s"$action ${resource.asString}")
-      val dnsAction = actionFor(evt, resources.get(resource.hashKey))
+      val dnsAction = decider.actionFor(evt, resources.get(resource.hashKey), controllerClass)
       log.debug(s"Action for ${resource.asString}: ${dnsAction.action}")
 
       dnsAction.action match {
