@@ -47,7 +47,12 @@ object KubernetesConversions {
     def hostnames: List[String] = {
       self match {
         case _: Service =>
-          List(annotation(DnsController.DnsAnnotation))
+          val svcHost = annotation(DnsController.DnsAnnotation)
+          if (svcHost != null || svcHost.nonEmpty) {
+            List(svcHost)
+          } else {
+            Nil
+          }          
         case ing: Ingress =>
           val spec = ing.getSpec
           if (spec == null) {
