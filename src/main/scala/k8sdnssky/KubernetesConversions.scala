@@ -48,11 +48,11 @@ object KubernetesConversions {
       self match {
         case _: Service =>
           val svcHost = annotation(DnsController.DnsAnnotation)
-          if (svcHost != null || svcHost.nonEmpty) {
-            List(svcHost)
-          } else {
+          if (svcHost == null || svcHost.isEmpty) {
             Nil
-          }          
+          } else {
+            List(svcHost)
+          }
         case ing: Ingress =>
           val spec = ing.getSpec
           if (spec == null) {
