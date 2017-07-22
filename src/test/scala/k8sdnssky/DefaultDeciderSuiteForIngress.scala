@@ -1,9 +1,8 @@
 package k8sdnssky
-import io.fabric8.kubernetes.api.model.{Service, ServiceBuilder}
 import io.fabric8.kubernetes.api.model.extensions.{Ingress, IngressBuilder}
 import io.fabric8.kubernetes.client.Watcher
 import k8sdnssky.Decider.{Delete, IgnoreResource, NoChange, Put}
-import k8sdnssky.KubernetesRepository.{IngressEvent, ServiceEvent}
+import k8sdnssky.KubernetesRepository.IngressEvent
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpecLike, MustMatchers}
 
@@ -258,7 +257,7 @@ class DefaultDeciderSuiteForIngress extends LogbackInitializer with FlatSpecLike
 
   it must "put if (some host, no lb) -> (some hosts, some lb)" in {
     val old = newIngress("name", "namespace", List("foo.acme.corp"), Nil)
-    val ing = newIngress("name", "namespace", List("foo.acme.corp","bar.acme.corp"), List("1.2.3.4"))
+    val ing = newIngress("name", "namespace", List("foo.acme.corp", "bar.acme.corp"), List("1.2.3.4"))
     val evt = IngressEvent(ing, Watcher.Action.MODIFIED)
 
     val action = decider.actionFor(evt, Some(old), null)
@@ -267,7 +266,7 @@ class DefaultDeciderSuiteForIngress extends LogbackInitializer with FlatSpecLike
 
   it must "put if (some host, no lb) -> (some hosts, some lbs)" in {
     val old = newIngress("name", "namespace", List("foo.acme.corp"), Nil)
-    val ing = newIngress("name", "namespace", List("foo.acme.corp","bar.acme.corp"), List("1.2.3.4", "2.3.4.5"))
+    val ing = newIngress("name", "namespace", List("foo.acme.corp", "bar.acme.corp"), List("1.2.3.4", "2.3.4.5"))
     val evt = IngressEvent(ing, Watcher.Action.MODIFIED)
 
     val action = decider.actionFor(evt, Some(old), null)
@@ -492,7 +491,7 @@ class DefaultDeciderSuiteForIngress extends LogbackInitializer with FlatSpecLike
 
   it must "put if (some host, some lb) -> (some hosts, some lbs)" in {
     val old = newIngress("name", "namespace", List("foo.acme.corp"), List("1.2.3.4"))
-    val ing = newIngress("name", "namespace", List("foo.acme.corp", "bar.acme.corp"), List("1.2.3.4","2.3.4.5"))
+    val ing = newIngress("name", "namespace", List("foo.acme.corp", "bar.acme.corp"), List("1.2.3.4", "2.3.4.5"))
     val evt = IngressEvent(ing, Watcher.Action.MODIFIED)
 
     val action = decider.actionFor(evt, Some(old), null)
@@ -530,5 +529,4 @@ class DefaultDeciderSuiteForIngress extends LogbackInitializer with FlatSpecLike
     val action = decider.actionFor(evt, Some(ing), null)
     action.action mustBe Delete
   }
-
 }

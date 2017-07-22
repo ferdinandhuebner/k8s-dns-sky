@@ -3,7 +3,8 @@ package k8sdnssky
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorContext, ActorRef, ActorSystem, Props}
+import akka.actor.{ActorContext, ActorRef, ActorSystem, OneForOneStrategy, Props, SupervisorStrategy}
+import akka.pattern.{Backoff, BackoffSupervisor}
 import com.typesafe.config.ConfigFactory
 import io.fabric8.kubernetes.api.model.HasMetadata
 import io.fabric8.kubernetes.client.{DefaultKubernetesClient, KubernetesClient}
@@ -107,15 +108,28 @@ object App {
       @Bean
       def dnsController(): ActorRef = {
         val decider = new DefaultDecider()
-        actorSystem().actorOf(
-          DnsController.props(
-            kubernetesRepository(),
-            dnsRecordHandlerFactory(),
-            decider,
-            dnsProperties.controllerClass
-          ),
-          "dns-controller"
+
+        val dnsControllerProps = DnsController.props(
+          kubernetesRepository(),
+          dnsRecordHandlerFactory(),
+          decider,
+          dnsProperties.controllerClass
         )
+
+        val supervisorProps = BackoffSupervisor.props(
+          Backoff.onFailure(
+            dnsControllerProps,
+            childName = "dns-controller",
+            minBackoff = FiniteDuration(1, "second"),
+            maxBackoff = FiniteDuration(1, "minutes"),
+            randomFactor = 0.2
+          ).withAutoReset(FiniteDuration(1, "minute"))
+              .withSupervisorStrategy(
+                OneForOneStrategy() {
+                  case _ => SupervisorStrategy.Restart
+                }))
+
+        actorSystem().actorOf(supervisorProps)
       }
 
       private[AkkaConfig] trait SpringActorSystemAdapter {

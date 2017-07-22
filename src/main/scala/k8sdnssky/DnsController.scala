@@ -6,7 +6,6 @@ import akka.event.Logging
 import io.fabric8.kubernetes.api.model.HasMetadata
 import io.fabric8.kubernetes.client.Watch
 import k8sdnssky.Decider.{Delete, IgnoreResource, NoChange, Put}
-import k8sdnssky.DnsRecordHandler.Protocol.Release
 import k8sdnssky.KubernetesRepository.KubernetesEvent
 
 import scala.collection.mutable
@@ -45,42 +44,16 @@ class DnsController(
   import k8sdnssky.DnsController.DnsAnnotation
   import k8sdnssky.DnsController.Protocol._
 
-  initialize()
+  private val watches: List[Watch] = initialize()
 
-  private def initialize(): Unit = {
+  private def initialize(): List[Watch] = {
     log.debug("DnsController is initializing")
     val watches: mutable.Buffer[Watch] = mutable.Buffer()
-    watches ++= Seq(
-      k8s.watchIngresses(evt => self ! evt, e => onConnectionLost(e, watches)),
-      k8s.watchServices(evt => self ! evt, e => onConnectionLost(e, watches))
-    )
-    self ! Initialize
-    context.become(initializing(watches.toList, Nil))
-  }
-
-  private def onConnectionLost(e: Throwable, watches: Seq[Watch]): Unit = {
-    log.debug("Connection to kubernetes lost")
-    if (connectionWasLost.compareAndSet(false, true)) {
-      self ! Restart
-    }
-  }
-
-  private def prepareRestart(watches: Seq[Watch]): Unit = {
-    log.debug("Telling children to release their records")
-    context.children.foreach(actor => actor ! Release)
-    watches.foreach(w => Try(w.close()))
-  }
-
-  private def initializing(watches: Seq[Watch], events: List[KubernetesEvent[_]]): Receive = {
-
-    case evt: KubernetesEvent[_] => context.become(initializing(watches, events :+ evt))
-
-    case Restart =>
-      prepareRestart(watches)
-      throw new RuntimeException("Restart requested")
-
-    case Initialize =>
-
+    try {
+      watches ++= Seq(
+        k8s.watchIngresses(evt => self ! evt, e => onConnectionLost(e)),
+        k8s.watchServices(evt => self ! evt, e => onConnectionLost(e))
+      )
       val services = k8s.services()
           .filter(_.annotation(DnsAnnotation) != null)
           .filter(_.hasDnsControllerClass(controllerClass))
@@ -91,24 +64,35 @@ class DnsController(
           .filter(_.loadBalancerIngress.nonEmpty)
           .map(x => x.hashKey -> x).toMap
 
-      if (events.nonEmpty) {
-        log.info(s"Missed ${events.length} events during initialization :(")
-      }
-
       val handlers = (services ++ ingresses).values.map(resource => {
         resource.hashKey -> recordHandlerFactory(resource, context)
       }).toMap
 
-      context.become(watching(watches, services ++ ingresses, handlers))
-    case x =>
-      log.warning("Unhandled message: " + x)
-      unhandled(x)
+      context.become(watching(services ++ ingresses, handlers))
+      watches.toList
+    } catch {
+      case e: Throwable =>
+        watches.foreach(w => Try(w.close()))
+        throw e
+    }
   }
 
-  private def watching(watches: Seq[Watch], resources: Map[String, HasMetadata],
+  private def onConnectionLost(e: Throwable): Unit = {
+    log.debug("Connection to kubernetes lost")
+    if (connectionWasLost.compareAndSet(false, true)) {
+      self ! Restart
+    }
+  }
+
+  override def postStop(): Unit = {
+    log.debug("closing watches to kubernetes")
+    watches.foreach(w => Try(w.close()))
+    super.postStop()
+  }
+
+  private def watching(resources: Map[String, HasMetadata],
       handlers: Map[String, ActorRef]): Receive = {
     case Restart =>
-      prepareRestart(watches)
       throw new RuntimeException("Restart requested")
     case evt: KubernetesEvent[_] =>
       val action = evt.action
@@ -120,7 +104,7 @@ class DnsController(
 
       dnsAction.action match {
         case NoChange =>
-          context.become(watching(watches, resources + (resource.hashKey -> resource), handlers))
+          context.become(watching(resources + (resource.hashKey -> resource), handlers))
         case Put =>
           val newHandler = handlers.get(resource.hashKey).map(handler => {
             handler ! DnsRecordHandler.Protocol.Update(resource)
@@ -128,12 +112,12 @@ class DnsController(
           }).getOrElse(recordHandlerFactory(resource, context))
 
           val newHandlers = handlers + (resource.hashKey -> newHandler)
-          context.become(watching(watches, resources + (resource.hashKey -> resource), newHandlers))
+          context.become(watching(resources + (resource.hashKey -> resource), newHandlers))
         case Delete =>
           handlers.get(resource.hashKey).foreach(handler => {
             handler ! DnsRecordHandler.Protocol.Release
           })
-          context.become(watching(watches, resources - resource.hashKey, handlers - resource.hashKey))
+          context.become(watching(resources - resource.hashKey, handlers - resource.hashKey))
         case IgnoreResource =>
       }
     case x =>
@@ -145,10 +129,5 @@ class DnsController(
     case x =>
       log.warning("Unhandled message: " + x)
       unhandled(x)
-  }
-
-  override def aroundPostRestart(reason: Throwable): Unit = {
-    log.debug("DnsController restarted")
-    super.aroundPostRestart(reason)
   }
 }

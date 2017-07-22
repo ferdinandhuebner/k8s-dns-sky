@@ -7,7 +7,7 @@ import com.google.common.base.Stopwatch
 import io.fabric8.kubernetes.client.KubernetesClient
 import k8sdnssky.EtcdProperties
 import mousio.etcd4j.EtcdClient
-import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.{Autowired, Qualifier}
 import org.springframework.boot.actuate.health.{Health, HealthIndicator}
 import org.springframework.boot.actuate.info.InfoContributor
 import org.springframework.context.annotation.{Bean, Configuration}

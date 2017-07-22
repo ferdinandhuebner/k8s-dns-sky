@@ -12,7 +12,7 @@ import scala.concurrent.Await
 
 object DnsInfoContributor {
   object Protocol {
-    object GetInfo
+    case class GetInfo(target: ActorRef)
     object UpdateInfo
     case class GetInfoResponse(resource: HasMetadata)
   }
@@ -27,7 +27,7 @@ class DnsInfoContributorAdapter(actor: ActorRef) extends InfoContributor {
     import scala.languageFeature.postfixOps
 
     implicit val timeout = Timeout(5 seconds)
-    val future = actor ? GetInfo
+    val future = actor ? GetInfo(ActorRef.noSender)
     Await.result(future, timeout.duration) match {
       case resources: java.util.List[_] => builder.withDetail("dnsManagedResources", resources)
     }
@@ -49,9 +49,9 @@ class DnsInfoContributor extends Actor {
 
   override def receive: Receive = {
     case UpdateInfo =>
-      context.actorSelection("/user/dns-controller/*") ! GetInfo
+      context.system.eventStream.publish(GetInfo(self))
       resources.clear()
-    case GetInfo =>
+    case GetInfo(target) =>
       import scala.collection.JavaConverters._
       val response = resources.map(res => {
         Map("resource" ->
@@ -62,7 +62,11 @@ class DnsInfoContributor extends Actor {
         ).asJava
       }).asJava
 
-      sender ! response
+      if (target == ActorRef.noSender) {
+        sender ! response
+      } else {
+        target ! response
+      }
     case GetInfoResponse(resource) =>
       resources += resource
     case x =>

@@ -37,6 +37,7 @@ class DnsRecordHandler(
   private val blacklist = dnsProperties.blacklistAsList
 
   log.debug(s"Record handler for ${initialResource.asString} with hostnames ${initialResource.hostnames}")
+  context.system.eventStream.subscribe(self, classOf[GetInfo])
   updateRecords(initialResource, None)
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -90,10 +91,6 @@ class DnsRecordHandler(
       })
       log.debug(s"Deleted records for $hostname: ${putResponse.deletedRecords.mkString(", ")}")
     }
-
-//    if (putResponse.refreshedRecords.nonEmpty) {
-//      eventDispatcher ! RefreshedRecordsEvent(resource, hostname)
-//    }
 
     putResponse.failures.foreach(f => {
       eventDispatcher ! toFailureEvent(resource, hostname, f.kind)
@@ -172,8 +169,8 @@ class DnsRecordHandler(
     case Update(newResource) =>
       updateRecords(newResource, Some(resource))
       context.become(handle(newResource))
-    case GetInfo =>
-      sender ! GetInfoResponse(resource)
+    case GetInfo(target) =>
+      target ! GetInfoResponse(resource)
     case x =>
       log.warning("Unhandled message: " + x)
       unhandled(x)

@@ -1,10 +1,9 @@
 package k8sdnssky
 
-import io.fabric8.kubernetes.api.model.extensions.{Ingress, IngressBuilder}
 import io.fabric8.kubernetes.api.model.{Service, ServiceBuilder}
 import io.fabric8.kubernetes.client.Watcher
 import k8sdnssky.Decider.{Delete, IgnoreResource, NoChange, Put}
-import k8sdnssky.KubernetesRepository.{IngressEvent, ServiceEvent}
+import k8sdnssky.KubernetesRepository.ServiceEvent
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpecLike, MustMatchers}
 
@@ -19,7 +18,6 @@ class DefaultDeciderSuiteForServices extends LogbackInitializer with FlatSpecLik
 
     hostname.map(meta.addToAnnotations(DnsController.DnsAnnotation, _))
     val s = meta.endMetadata()
-
 
     val status = s.withNewStatus()
     ips.foreach(ip => {
@@ -397,5 +395,4 @@ class DefaultDeciderSuiteForServices extends LogbackInitializer with FlatSpecLik
     val action = decider.actionFor(evt, Some(svc), null)
     action.action mustBe Delete
   }
-
 }
