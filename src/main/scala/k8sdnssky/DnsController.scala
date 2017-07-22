@@ -1,10 +1,10 @@
 package k8sdnssky
 import java.util.concurrent.atomic.AtomicBoolean
 
-import akka.actor.{Actor, ActorContext, ActorRef, Kill, Props}
+import akka.actor.{Actor, ActorContext, ActorRef, Props}
 import akka.event.Logging
 import io.fabric8.kubernetes.api.model.HasMetadata
-import io.fabric8.kubernetes.client.{Watch, Watcher}
+import io.fabric8.kubernetes.client.Watch
 import k8sdnssky.Decider.{Delete, IgnoreResource, NoChange, Put}
 import k8sdnssky.DnsRecordHandler.Protocol.Release
 import k8sdnssky.KubernetesRepository.KubernetesEvent
@@ -42,8 +42,8 @@ class DnsController(
   val log = Logging(context.system, this)
 
   import KubernetesConversions._
-  import k8sdnssky.DnsController.Protocol._
   import k8sdnssky.DnsController.DnsAnnotation
+  import k8sdnssky.DnsController.Protocol._
 
   initialize()
 
@@ -75,7 +75,7 @@ class DnsController(
 
     case evt: KubernetesEvent[_] => context.become(initializing(watches, events :+ evt))
 
-    case Restart => 
+    case Restart =>
       prepareRestart(watches)
       throw new RuntimeException("Restart requested")
 
@@ -107,7 +107,7 @@ class DnsController(
 
   private def watching(watches: Seq[Watch], resources: Map[String, HasMetadata],
       handlers: Map[String, ActorRef]): Receive = {
-    case Restart => 
+    case Restart =>
       prepareRestart(watches)
       throw new RuntimeException("Restart requested")
     case evt: KubernetesEvent[_] =>
