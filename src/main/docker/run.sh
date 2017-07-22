@@ -8,4 +8,4 @@ if [ -z "${JAVA_TOOL_OPTIONS}" ]; then
   export JAVA_TOOL_OPTIONS
 fi
 
-exec java -server -jar /dns-controller.jar
+exec java -server -jar /dns-controller.jar $*
