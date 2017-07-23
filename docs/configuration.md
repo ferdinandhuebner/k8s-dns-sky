@@ -7,7 +7,19 @@ The dns controller is built on top of Spring Boot. You can configure it through 
   `--spring.config.location=/path/to/application.properties`
 * The format of an environment variable for `my-flag` is `MY_FLAG`
 * The format of a java system property for `my-flag` is `-DmyFlag` or `-Dmy-flag`
-* The format of a command-line argument for `my-flag` is `--myFlag` or `--my-flat`
+* The format of a command-line argument for `my-flag` is `--myFlag` or `--my-flag`
+
+Settings related to Java (heap, permgen, etc.), can be configured with the following environment
+variables:
+
+* `JVM_MIN_HEAP` - initial heap size, default `64m`
+* `JVM_MAX_HEAP` - max heap size, default `128m`
+* `JVM_MAX_METASPACE` - max metaspace size, default `64m`
+* `JVM_INITIAL_CODE_CACHE` - initial code cache size, default `16m`
+* `JVM_MAX_CODE_CACHE` - max code cache size, default `32m`
+* `JVM_COMPRESSED_CLASS_SPACE` - max size for compressed class pointers, default `32m` 
+
+Specifying `JAVA_TOOL_OPTIONS` will override all other settings related to java. 
 
 # Configuration flags
 
