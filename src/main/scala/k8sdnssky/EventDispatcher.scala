@@ -72,12 +72,13 @@ class EventDispatcher(private val k8s: KubernetesClient) extends Actor {
     }
   }
 
-  private def truncate(s: String): String = {
-    if (s.length > 253) {
+  private def sanitize(s: String): String = {
+    val truncated = if (s.length > 253) {
       s.substring(0, 253)
     } else {
       s
     }
+    truncated.replaceAll("_", "-")
   }
 
   override def receive: Receive = {
@@ -85,20 +86,20 @@ class EventDispatcher(private val k8s: KubernetesClient) extends Actor {
       case NewRecordEvent(resource, hostname, record) =>
         val eventName = s"${resource.name}.${resource.getMetadata.getUid}.dns.created.$hostname.$record"
         val message = s"DNS record $record created for $hostname"
-        fireEvent(resource.namespace, truncate(eventName), "Normal", "RecordCreated", message, resource)
+        fireEvent(resource.namespace, sanitize(eventName), "Normal", "RecordCreated", message, resource)
       case DeletedRecordEvent(resource, hostname, record) =>
         val eventName = s"${resource.name}.${resource.getMetadata.getUid}.dns.deleted.$hostname.$record"
         val message = s"DNS record $record deleted for $hostname"
-        fireEvent(resource.namespace, truncate(eventName), "Normal", "RecordDeleted", message, resource)
+        fireEvent(resource.namespace, sanitize(eventName), "Normal", "RecordDeleted", message, resource)
       case FailureForRecordEvent(resource, hostname, record, kind, reason) =>
         val failureKind = if (kind != null) kind.toLowerCase else null
         val eventName = List(resource.name, resource.getMetadata.getUid, "dns", "failed", failureKind, hostname, record)
             .filter(_ != null).mkString(".")
-        fireEvent(resource.namespace, truncate(eventName), "Warning", "RecordFailure", reason, resource)
+        fireEvent(resource.namespace, sanitize(eventName), "Warning", "RecordFailure", reason, resource)
       case RefreshedRecordsEvent(resource, hostname) =>
         val eventName = s"${resource.name}.${resource.getMetadata.getUid}.dns.refreshed.$hostname"
         val message = s"DNS records refreshed for $hostname"
-        fireEvent(resource.namespace, truncate(eventName), "Normal", "RecordsRefreshed", message, resource)
+        fireEvent(resource.namespace, sanitize(eventName), "Normal", "RecordsRefreshed", message, resource)
     }
     case x =>
       log.warning("Unhandled message: " + x)
