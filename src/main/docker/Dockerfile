@@ -1,4 +1,4 @@
-FROM anapsix/alpine-java:8_jdk_unlimited
+FROM anapsix/alpine-java:8u144b01_jdk_unlimited
 
 RUN adduser -D -H dns-controller
 
