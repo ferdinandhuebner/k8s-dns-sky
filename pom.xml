@@ -233,6 +233,7 @@
         <configuration>
           <verbose>true</verbose>
           <logStdout>true</logStdout>
+          <autoPull>always</autoPull>
           <images>
             <image>
               <name>${docker.image.name}:${docker.tag.name}</name>
